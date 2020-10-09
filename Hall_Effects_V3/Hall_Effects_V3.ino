@@ -4,12 +4,14 @@
 #include <EthernetUdp.h>
 #include <SPI.h>
 #include <OSCMessage.h>
-#include "RunningAverage.h"
+#include <movingAvg.h>          // https://github.com/JChristensen/movingAvg
+
 
 
 // running average over 200 samples
-RunningAverage myRA_1(200);   // bike one
-RunningAverage myRA_2(200);  // bike two
+movingAvg myRA_1(200);   // bike one
+movingAvg myRA_2(200);  // bike two
+
 
 EthernetUDP Udp;
 
@@ -59,9 +61,8 @@ void setup() {
   pinMode(PASPin_2, INPUT); // initialize the PAS pin as a input
   attachInterrupt(digitalPinToInterrupt(PASPin_1), pulse_1, RISING); //Each rising edge on PAS pin causes an interrupt
   attachInterrupt(digitalPinToInterrupt(PASPin_2), pulse_2, RISING); //Each rising edge on PAS pin causes an interrupt
-    // initialize serial communication at 9600 bits per second:
-  myRA_1.clear(); // explicitly start clean
-  myRA_2.clear(); // explicitly start clean
+  myRA_1.begin();
+  myRA_2.begin();
 }
 
 
@@ -103,16 +104,14 @@ void loop() {
     sendOSC("/Bike2/Winner", 0);
   }  
 
-  // calculate velocities
+  // calculate velocities (averaging library works on integer so may need a conversion factor...)
   timer_1 = millis()-lastEdgeTime_1;
-  vel_1 = (166/(timer_1)) * 2.2;  // convert time between pulses to mph
-  myRA_1.addValue(vel_1);
-  av_vel_1 = myRA_1.getAverage();   // moving average velocity
+  vel_1 = (166/(timer_1)) * 2200;  // convert time between pulses to mph
+  av_vel_1 = myRA_1.reading(vel_1)/1000;  // add value and return moving average velocity
 
   timer_2 = millis()-lastEdgeTime_2;
-  vel_2 = (166/(timer_2)) * 2.2;  // convert time between pulses to mph
-  myRA_2.addValue(vel_2);
-  av_vel_2 = myRA_2.getAverage();   // moving average velocity
+  vel_2 = (166/(timer_2)) * 2200;  // convert time between pulses to mph
+  av_vel_2 = myRA_2.reading(vel_2)/1000;  // add value and return moving average velocity
 
   // send average velocity as OSC
   sendOSC("/Bike1/Speed/", av_vel_1);
